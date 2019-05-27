@@ -5,6 +5,10 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/param.h>
+#include <pwd.h>
+#include <sys/types.h>
+#include <grp.h>
+#include <time.h>
 
 static void usage() {
     printf("usage: oxls path\n");
@@ -12,6 +16,9 @@ static void usage() {
 
 static void list(const char*);
 static void show_entry(dirent *);
+static void show_user_name(uid_t);
+static void show_group_name(gid_t);
+static void show_time(long);
 
 int main(int argc, const char** argv) {
     if (argc < 2) {
@@ -79,6 +86,31 @@ static void show_mode(mode_t m) {
     printf("%.*s", 10, cmode);
 }
 
+static void show_user_name(uid_t uid) {
+    struct passwd *ppwd;
+    if ((ppwd = getpwuid(uid)) == NULL) {
+        perror("failed to get user");
+        return;
+    }
+
+    printf("%-8s ", ppwd->pw_name);
+}
+
+static void show_group_name(gid_t gid) {
+    struct group *pgrp;
+    if ((pgrp = getgrgid(gid)) == NULL) {
+        perror("failed to get group");
+        return;
+    }
+
+    printf("%-8s ", pgrp->gr_name);
+}
+
+static void show_time(long secs) {
+    struct tm *ptm = localtime(&secs);
+    printf("%02d-%02d %02d:%02d ", ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min);
+}
+
 static void show_entry(dirent *p) {
     struct stat st;
     if (stat(p->d_name, &st) == -1) {
@@ -90,13 +122,13 @@ static void show_entry(dirent *p) {
 
     printf("%4d ", st.st_nlink);
 
-    printf("%6d   ", st.st_uid);
+    show_user_name(st.st_uid);
 
-    printf("%6d   ", st.st_gid);
+    show_group_name(st.st_gid);
 
-    printf("%6lld   ", st.st_size);
+    printf("%6lld  ", st.st_size);
 
-    printf("%18ld   ", st.st_mtimespec.tv_nsec);
+    show_time(st.st_ctimespec.tv_sec);
 
     printf("%.*s", p->d_namlen, p->d_name);
     printf("\n");
